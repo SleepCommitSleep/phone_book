@@ -2,9 +2,22 @@
 #include <QtWidgets/qdatetimeedit.h>
 #include <QtCore/qregularexpression.h>
 #include <QtCore/qdebug.h>
+#include <QApplication>
+#include <QTableWidget>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QLabel>
+#include <QMessageBox>
+#include <QFile>
+#include <QTextCodec>
+#include <QTextStream>
+#include <QComboBox>
 #include <iostream>
 #include <string.h>
 #include <fstream>
+#include <qdebug.h>
+#include <algorithm>
 
 
 using namespace std;
@@ -88,6 +101,7 @@ public:
                 cout << *it << '|';
         }
     };
+
     void print_detailed() {
         cout << "id: " << this->u_id << endl;
         cout << "1.Имя: " << this->name << endl;
@@ -103,7 +117,6 @@ public:
     };
 };
 
- 
 void show_contacts(vector<Contact> contacts, int page = 0) {
     for (auto it = contacts.begin(); it != contacts.end(); it++) {
         it->print_string();
@@ -116,16 +129,21 @@ bool check_mail(string some_str) {
     return mail.match(tmp).hasMatch() && (tmp.length() < 50);
 }
 
-bool check_date(string date) {
-    QString dateq = date.c_str();
-    if (!QRegularExpression("^[0-9]{1,2}+[.]+[0-9]{1,2}+[.]+[0-9]{4,4}").match(dateq).hasMatch())
+bool check_date(QDate date) {
+    if (date > QDate::currentDate())
         return false;
-    QDate test = QDate::fromString(dateq, "d'.'M'.'yyyy");
-    if (test.isValid() == true)
+    if (!date.isValid())
+        return false;
+    return true;
+}
+
+bool check_name(QString name) {
+    if (QRegularExpression("[A-Za-z]{1,}").match(name).hasMatch())
+        return true;
+    if (QRegularExpression(QString::fromLocal8Bit("[А-Яа-я]{1,}")).match(name).hasMatch())
         return true;
     return false;
 }
-
 
 bool check_phone(string phone_number) {
     QString phone_numberq = phone_number.c_str();
@@ -144,28 +162,32 @@ bool check_phone(string phone_number) {
     return false;
 }
 
-
 void write_contact_to_file(Contact& new_contact) {
 
-    fstream out("contacts.csv", ios::app);
-    if (out.is_open()) {
-        out << new_contact.u_id << '|' << new_contact.name << '|' << new_contact.surname << '|' << new_contact.middle_name << '|' << new_contact.mail << '|' << new_contact.address << '|' << new_contact.date_of_birth << '|';
+    QFile qcontact_file("contacts.csv");
+    if (qcontact_file.open(QIODevice::Text | QIODevice::ReadWrite | QIODevice::Append)) {
+        QTextStream out(&qcontact_file);
+        QTextCodec::setCodecForLocale(QTextCodec::codecForName("Windows-1251"));
+        out.setCodec(QTextCodec::codecForName("windows-1251"));
+        out << new_contact.u_id << '|' << QString::fromLocal8Bit(new_contact.name.c_str()) << '|' << QString::fromLocal8Bit(new_contact.surname.c_str()) << \
+            '|' << QString::fromLocal8Bit(new_contact.middle_name.c_str()) << '|' << new_contact.mail.c_str() << '|' <<\
+            QString::fromLocal8Bit(new_contact.address.c_str()) << '|' << QString::fromLocal8Bit(new_contact.date_of_birth.c_str()) << '|';
         for (auto it = new_contact.phone_numbers.begin(); it != new_contact.phone_numbers.end(); it++) {
             if (it == (new_contact.phone_numbers.end() - 1))
-                out << *it << '\n';
+                out << it->c_str() << '\n';
             else
-                out << *it << '|';
+                out << it->c_str() << '|';
         }
     }
-    out.close();
 }
 
 void write_contacts(vector<Contact> &contacts) {
-    fstream contact_file("contacts.csv", ios::out);
+    QFile qcontact_file("contacts.csv");
+    qcontact_file.open(QIODevice::Text | QIODevice::ReadWrite | QIODevice::Truncate);
+    qcontact_file.close();
     for (auto it = contacts.begin(); it != contacts.end(); it++) {
         write_contact_to_file(*it);
     }
-    contact_file.close();
 }
 
 void delete_contact(vector<Contact> &contacts) {
@@ -183,179 +205,538 @@ void delete_contact(vector<Contact> &contacts) {
     
 }
 
-void change_field(Contact &contact, int field_id) {
-    string tmp_in;
-    int option, counter;
-    switch (field_id) {
-        case 1:
-            cout << "\nСтарое значение поля name: " << contact.name << endl;
-            cout << "\nВведите новое значение поля: ";
-            cin >> contact.name;
-            break;
-        case 2:
-            cout << "\nСтарое значение поля surname: " << contact.surname << endl;
-            cout << "\nВведите новое значение поля: ";
-            cin >> contact.surname;
-            break;
-        case 3:
-            cout << "\nСтарое значение поля middle_name: " << contact.middle_name << endl;
-            cout << "\nВведите новое значение поля: ";
-            cin >> contact.middle_name;
-            break;
-        case 4:
-            cout << "\nСтарое значение поля mail: " << contact.mail << endl;
-            cout << "\nВведите новое значение поля: ";
-            cin >> contact.middle_name;
-            break;
-        case 5:
-            cout << "\nСтарое значение поля address: " << contact.address << endl;
-            cout << "\nВведите новое значение поля: ";
-            cin >> contact.address;
-            break;
-        case 6:
-            cout << "\nСтарое значение поля phone_numbers: ";
-            for (int i = 0; i != contact.phone_numbers.size(); i++) {
-                if (i == contact.phone_numbers.size() - 1)
-                    cout << i << ". " << contact.phone_numbers[i];
-                else
-                    cout << i << ". " << contact.phone_numbers[i] << '|';
-            }
-            cout << "\nВыберите какой номер нужно изменить: ";
-            cin >> option;
-            if (option > contact.phone_numbers.size())
-                return;
-            cout << "\nСтарое значение номера: " << contact.phone_numbers[option - 1];
-            cout << "\nВведите новое значение поля: ";
-            cin >> tmp_in;
-            if (check_phone(tmp_in))
-                contact.phone_numbers[option - 1] = tmp_in;
-            break;
-        case 7:
-            cout << "\nСтарое значение поля date_of_birth: " << contact.address << endl;
-            cout << "\nВведите новое значение date_of_birth: ";
-            cin >> contact.date_of_birth;
-            break;
-    }
-}
-
-void change_contact(vector<Contact> &contacts) {
-    int ch_id, ch_field;
-    show_contacts(contacts);
-    cout << "\nВведите id контакта, который вы хотите изменить\n";
-    cin >> ch_id;
-    for (auto it = contacts.begin(); it != contacts.end(); it++) {
-        if (it->u_id == ch_id) {
-            it->print_detailed();
-            cout << "\nВведите номер поля, которое вы желаете поменять\n";
-            cin >> ch_field;
-            change_field(*it, ch_field);
-            write_contacts(contacts);
-            return;
-        }
-    }
-    cout << "\nКонтакт не найден\n";
-}
-
 void show_sorted(vector<Contact> contacts, int field_option = 0) {
 
 }
 
+class ButtonBlock : public QWidget {
+    Q_OBJECT
+public:
+    QPushButton* b_add_contact = new QPushButton(QString("add contact"), this);
+    QPushButton* b_delete = new QPushButton(QString("delete"), this);
+    QPushButton* b_edit = new QPushButton(QString("edit"), this);
 
+    ButtonBlock(QWidget* parent) : QWidget(parent) {
+        b_add_contact->show();
+        b_delete->show();
+        b_edit->show();
+    }
+};
 
-void add_contact(vector<Contact> &contacts) {
-    Contact new_contact;
-    string tmp;
-    if (contacts.size() == 0)
-        new_contact.u_id = 1;
-    else
-        new_contact.u_id = (contacts.end() - 1)->u_id + 1;
-    cout << "Введите Имя контакта\n";
-    cin >> tmp;
-    new_contact.name = tmp;
+class AddContactWindow : public QWidget {
+    Q_OBJECT
 
-    cout << "Введите Фамилию контакта\n";
-    cin >> tmp;
-    new_contact.surname = tmp;
+public:
+    vector<Contact>* contacts_window;
+    QPushButton* save = new QPushButton(QString("save"), this);
+    QLineEdit* name = new QLineEdit(this);
+    QLineEdit* surname = new QLineEdit(this);
+    QLineEdit* middle_name = new QLineEdit(this);
+    QLineEdit * email = new QLineEdit(this);
+    QLineEdit* address = new QLineEdit(this);
+    QDateEdit* date = new QDateEdit(this);
+    QTextEdit* phone_numbers = new QTextEdit(this);
 
-    cout << "Введите Отчество контакта\n";
-    cin >> tmp;
-    new_contact.middle_name = tmp;
+    AddContactWindow(vector<Contact>* contacts) : QWidget() {
+        contacts_window = contacts;
 
-    while (true) {
-        cout << "Введите email контакта\n";
-        cin >> tmp;
+        this->setMinimumSize(400, 300);
+
+        QLabel* name_text = new QLabel("name", this);
+        name_text->move(100, 40);
+        name->move(180, 40);
+
+        QLabel* surname_text = new QLabel("surname", this);
+        surname_text->move(100, 60);
+        surname->move(180, 60);
+
+        QLabel* middle_name_text = new QLabel("middle_name", this);
+        middle_name_text->move(100, 80);
+        middle_name->move(180, 80);
+
+        QLabel* email_text = new QLabel("email", this);
+        email_text->move(100, 100);
+        email->move(180, 100);
+
+        QLabel* address_text = new QLabel("address", this);
+        address_text->move(100, 120);
+        address->move(180, 120);
+
+        QLabel* date_text = new QLabel("date of birth", this);
+        date_text->move(100, 140);
+        date->move(180, 140);
+
+        QLabel* phones_text = new QLabel("phones", this);
+        phones_text->move(100, 160);
+        phone_numbers->move(180, 160);
+        phone_numbers->setMaximumSize(name->width(), 50);
+
+        save->move(100, 180);
+        connect(save, SIGNAL(clicked()), this, SLOT(save_contact()));
+    }
+
+    void closeEvent(QCloseEvent* event) {
+        delete this;
+    }
+
+public slots:
+    void save_contact() {
+        qDebug() << phone_numbers->toPlainText();
+        Contact new_contact;
+        string tmp;
+        QTextCodec::setCodecForLocale(QTextCodec::codecForName("Windows-1251"));
+        if (contacts_window->size() == 0)
+            new_contact.u_id = 1;
+        else
+            new_contact.u_id = (contacts_window->end() - 1)->u_id + 1;
+
+        tmp = name->text().toStdString();
+        if (check_name(name->text()))
+            new_contact.name = tmp;
+        else
+            return;
+
+        
+        tmp = surname->text().toStdString();
+        if (check_name(surname->text()))
+            new_contact.surname = tmp;
+        else
+            return;
+
+        tmp = middle_name->text().toStdString();
+        if (check_name(middle_name->text()))
+            new_contact.middle_name = tmp;
+        else
+            return;
+
+        tmp = email->text().toStdString();
         if (check_mail(tmp)) {
             new_contact.mail = tmp;
-            break;
-        }
-        else
-            cout << "\nНеправильная введен email, повторите ввод\n";
-    }
-
-    cout << "Введите адрес контакта\n";
-    cin >> tmp;
-    new_contact.address = tmp;
- 
-    while (true) {
-        cout << "Введите дату рождения контакта в формате dd.mm.yyyy\n";
-        cin >> tmp;
-        if (check_date(tmp)) {
-            new_contact.date_of_birth = tmp;
-            break;
-        }
-        else
-            cout << "\nНеправильная дата, повторите ввод\n";
-    }
-
-    cout << "Введите номера телефонов(q - закончить ввод)\n";
-    for (cin >> tmp;; cin >> tmp) {
-        if (tmp == "q") {
-            break;
         }
         else {
-            if (check_phone(tmp))
-                new_contact.phone_numbers.push_back(tmp);
-            else
-                cout << "\nНеправильно введен номер\n";
+            QMessageBox* warn = new QMessageBox;
+            warn->setText(QString::fromLocal8Bit("Неправильно введен email, повторите ввод"));
+            warn->exec();
+            return;
+        }
+
+        tmp = address->text().toStdString();
+        new_contact.address = tmp;
+
+
+        if (check_date(date->date())) {
+            tmp = date->date().toString("yyyy.MM.dd").toStdString();
+            new_contact.date_of_birth = tmp;
+        }
+        else {
+            QMessageBox* warn = new QMessageBox;
+            warn->setText(QString::fromLocal8Bit("Неправильная дата, повторите ввод"));
+            warn->exec();
+            return;
+        }
+
+        QStringList phones_spplitted = phone_numbers->toPlainText().split('\n');
+        for (auto it = phones_spplitted.begin(); it != phones_spplitted.end(); it++) {
+            if (check_phone(it->toStdString()))
+                new_contact.phone_numbers.push_back(it->toStdString());
+            else {
+                QMessageBox* warn = new QMessageBox;
+                warn->setText(QString::fromLocal8Bit("Неправильный телефон"));
+                warn->exec();
+                return;
+            }
+        }
+        new_contact.print_detailed();
+        contacts_window->push_back(new_contact);
+        write_contact_to_file(new_contact);
+    };
+};
+
+class ChangeContactWindow : public QWidget {
+    Q_OBJECT
+public:
+    Contact* contact;
+    QPushButton* update = new QPushButton(QString("update"), this);
+    QLineEdit* name = new QLineEdit(this);
+    QLineEdit* surname = new QLineEdit(this);
+    QLineEdit* middle_name = new QLineEdit(this);
+    QLineEdit* email = new QLineEdit(this);
+    QLineEdit* address = new QLineEdit(this);
+    QDateEdit* date = new QDateEdit(this);
+    QTextEdit* phone_numbers = new QTextEdit(this);
+    ChangeContactWindow(Contact* contact) : QWidget() {
+        this->contact = contact;
+        this->setMinimumSize(400, 300);
+
+        QLabel* name_text = new QLabel("name", this);
+        name_text->move(100, 40);
+        name->setText(contact->name.c_str());
+        name->move(180, 40);
+
+        QLabel* surname_text = new QLabel("surname", this);
+        surname_text->move(100, 60);
+        surname->setText(contact->surname.c_str());
+        surname->move(180, 60);
+
+        QLabel* middle_name_text = new QLabel("middle_name", this);
+        middle_name_text->move(100, 80);
+        middle_name->setText(contact->middle_name.c_str());
+        middle_name->move(180, 80);
+
+        QLabel* email_text = new QLabel("email", this);
+        email_text->move(100, 100);
+        email->setText(contact->mail.c_str());
+        email->move(180, 100);
+
+        QLabel* address_text = new QLabel("address", this);
+        address_text->move(100, 120);
+        address->setText(contact->address.c_str());
+        address->move(180, 120);
+
+        QLabel* date_text = new QLabel("date of birth", this);
+        date_text->move(100, 140);
+        date->setDate(QDate::fromString(contact->date_of_birth.c_str(), "yyyy.MM.dd"));
+        date->move(180, 140);
+
+        QString phone_string = "";
+        for (auto it = contact->phone_numbers.begin(); it != contact->phone_numbers.end(); it++) {
+            phone_string += it->c_str();
+            if (it != contact->phone_numbers.end() - 1)
+                phone_string += '\n';
+        }
+        QLabel* phones_text = new QLabel("phones", this);
+        phones_text->move(100, 160);
+        phone_numbers->move(180, 160);
+        phone_numbers->setText(phone_string);
+        phone_numbers->setMaximumSize(name->width(), 50);
+
+        update->move(100, 180);
+        connect(update, SIGNAL(clicked()), this, SLOT(update_contact()));
+    }
+
+    void closeEvent(QCloseEvent* event) {
+        delete this;
+    }
+
+public slots:
+    void update_contact() {
+        QTextCodec::setCodecForLocale(QTextCodec::codecForName("Windows-1251"));
+        qDebug() << phone_numbers->toPlainText();
+        string tmp;
+
+        tmp = name->text().toStdString();
+        if (check_name(name->text()))
+            contact->name = tmp;
+        else
+            return;
+
+        tmp = surname->text().toStdString();
+        if (check_name(surname->text()))
+            contact->surname = tmp;
+        else
+            return;
+
+        tmp = middle_name->text().toStdString();
+        if (check_name(middle_name->text()))
+            contact->middle_name = tmp;
+        else
+            return;
+
+        tmp = email->text().toStdString();
+        if (check_mail(tmp)) {
+            contact->mail = tmp;
+        }
+        else {
+            QMessageBox* warn = new QMessageBox;
+            warn->setText(QString::fromLocal8Bit("Неправильно введен email, повторите ввод"));
+            warn->exec();
+        }
+
+        tmp = address->text().toStdString();
+        contact->address = tmp;
+
+
+        if (check_date(date->date())) {
+            tmp = date->date().toString("yyyy.MM.dd").toStdString();
+            contact->date_of_birth = tmp;
+        }
+        else {
+            QMessageBox* warn = new QMessageBox;
+            warn->setText(QString::fromLocal8Bit("Неправильная дата, повторите ввод"));
+            warn->exec();
+            return;
+        }
+
+        contact->phone_numbers = {};
+        QStringList phones_spplitted = phone_numbers->toPlainText().split('\n');
+        for (auto it = phones_spplitted.begin(); it != phones_spplitted.end(); it++) {
+            if (check_phone(it->toStdString()))
+                contact->phone_numbers.push_back(it->toStdString());
+            else {
+                QMessageBox* warn = new QMessageBox;
+                warn->setText(QString::fromLocal8Bit("Неправильный телефон"));
+                warn->exec();
+                return;
+            }
+        }
+        contact->print_detailed();
+    };
+    void delete_w() {
+        delete this;
+    }
+};
+
+class ContactList : public QTableWidget {
+    Q_OBJECT
+
+public:
+    vector<Contact>* contacts_list;
+    ContactList(QWidget* parent, vector<Contact>& contacts) : QTableWidget(parent) {
+        contacts_list = &contacts;
+        QString tmp = "";
+        this->setRowCount(contacts.size());
+        this->setColumnCount(8);
+        this->setHorizontalHeaderLabels({ "id", "name", "surname", "middle name", "email", "address", "date of birth", "phone numbers" });
+        for (int i = 0; i < contacts.size(); i++) {
+            this->setItem(i, 0, new QTableWidgetItem(to_string(contacts[i].u_id).c_str()));
+            this->setItem(i, 1, new QTableWidgetItem(QString(contacts[i].name.c_str())));
+            this->setItem(i, 2, new QTableWidgetItem(QString(contacts[i].surname.c_str())));
+            this->setItem(i, 3, new QTableWidgetItem(QString(contacts[i].middle_name.c_str())));
+            this->setItem(i, 4, new QTableWidgetItem(QString(contacts[i].mail.c_str())));
+            this->setItem(i, 5, new QTableWidgetItem(QString(contacts[i].address.c_str())));
+            this->setItem(i, 6, new QTableWidgetItem(QString(contacts[i].date_of_birth.c_str())));
+            for (auto it = contacts[i].phone_numbers.begin(); it != contacts[i].phone_numbers.end(); it++) {
+                tmp += it->c_str();
+                tmp += " ";
+            }
+            this->setItem(i, 7, new QTableWidgetItem(tmp));
+            tmp = "";
+        }
+        this->setFixedHeight(400);
+        this->setMaximumWidth(1000);
+        this->setMinimumWidth(800);
+        QHeaderView* test_w = this->horizontalHeader();
+        connect((QObject*)this->horizontalHeader(), SIGNAL(sectionClicked(int)), this, SLOT(show_sorted(int)));
+    }
+    void refresh_table_search(int field, const QString& target) { 
+        vector<Contact>& contacts = *contacts_list;
+        vector<Contact*> tmp_contacts = {};
+        for (auto it = contacts_list->begin(); it != contacts_list->end(); it++) {
+            if (field == 0 && it->u_id == target.toInt())
+                tmp_contacts.push_back(&(*it));
+            else if (field == 1 && it->name.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 2 && it->surname.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 3 && it->middle_name.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 4 && it->mail.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 5 && it->address.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 6 && it->date_of_birth.find(target.toStdString()) != -1)
+                tmp_contacts.push_back(&(*it));
+            else if (field == 7) {
+                for (auto itp = it->phone_numbers.begin(); itp != it->phone_numbers.end(); itp++) {
+                    if (itp->find(target.toStdString()) != -1) {
+                        tmp_contacts.push_back(&(*it));
+                        break;
+                    }
+                }
+            }
+        }
+
+        QString tmp = "";
+        this->setRowCount(tmp_contacts.size());
+        this->setColumnCount(8);
+        this->setHorizontalHeaderLabels({ "id", "name", "surname", "middle name", "email", "address", "date of birth", "phone numbers" });
+        for (int i = 0; i < tmp_contacts.size(); i++) {
+            this->setItem(i, 0, new QTableWidgetItem(to_string(tmp_contacts[i]->u_id).c_str()));
+            this->setItem(i, 1, new QTableWidgetItem(QString(tmp_contacts[i]->name.c_str())));
+            this->setItem(i, 2, new QTableWidgetItem(QString(tmp_contacts[i]->surname.c_str())));
+            this->setItem(i, 3, new QTableWidgetItem(QString(tmp_contacts[i]->middle_name.c_str())));
+            this->setItem(i, 4, new QTableWidgetItem(QString(tmp_contacts[i]->mail.c_str())));
+            this->setItem(i, 5, new QTableWidgetItem(QString(tmp_contacts[i]->address.c_str())));
+            this->setItem(i, 6, new QTableWidgetItem(QString(tmp_contacts[i]->date_of_birth.c_str())));
+            for (auto it = tmp_contacts[i]->phone_numbers.begin(); it != tmp_contacts[i]->phone_numbers.end(); it++) {
+                tmp += it->c_str();
+                tmp += " ";
+            }
+            this->setItem(i, 7, new QTableWidgetItem(tmp));
+            tmp = "";
+        }
+        this->setFixedHeight(400);
+        this->setMaximumWidth(1000);
+        this->setMinimumWidth(800);
+    }
+public slots:
+    void delete_row() {
+        int rows_to_delete = 0;
+        int row_id = 0;
+        if (this->selectedRanges().size() > 0) {
+            rows_to_delete = this->selectedRanges().begin()->bottomRow() + 1 - selectedRanges().begin()->topRow();
+            row_id = selectedRanges().begin()->topRow();
+        }
+
+        for (int i = 0; i < rows_to_delete; i++) {
+            for (auto it = contacts_list->begin(); it != contacts_list->end(); it++)
+                if (it->u_id == this->item(row_id, 0)->text().toInt()) {
+                    contacts_list->erase(it);
+                    write_contacts(*contacts_list);
+                    break;
+                }
+            removeRow(row_id);
+        }
+
+        
+    }
+    void create_contact() {
+        
+        AddContactWindow* add_w = new AddContactWindow(contacts_list);
+        connect(add_w->save, SIGNAL(clicked()), this, SLOT(refresh_table()));
+        add_w->show();
+    }
+
+    void update_contact() {
+        int id = 0;
+        if (this->selectedRanges().size() > 0) {
+            if (this->selectedRanges().begin()->bottomRow() == selectedRanges().begin()->topRow()) {
+                id = this->item(this->selectedRanges().begin()->bottomRow(), 0)->data(Qt::DisplayRole).toInt();
+                qDebug() << id;
+                for (auto it = contacts_list->begin(); it != contacts_list->end(); it++) {
+                    if (it->u_id == id) {
+                        ChangeContactWindow* add_w = new ChangeContactWindow(&(*it));
+                        connect(add_w->update, SIGNAL(clicked()), this, SLOT(refresh_table()));
+                        add_w->show();
+                        break;
+                    }
+
+                }
+            }      
         }
     }
-    new_contact.print_detailed();
-    contacts.push_back(new_contact);
-    write_contact_to_file(new_contact);
-}
 
+    void refresh_table() {
+        vector<Contact>& contacts = *contacts_list;
+        write_contacts(contacts);
+        QString tmp = "";
+        this->setRowCount(contacts.size());
+        this->setColumnCount(8);
+        this->setHorizontalHeaderLabels({ "id", "name", "surname", "middle name", "email", "address", "date of birth", "phone numbers" });
+        for (int i = 0; i < contacts.size(); i++) {
+            this->setItem(i, 0, new QTableWidgetItem(to_string(contacts[i].u_id).c_str()));
+            this->setItem(i, 1, new QTableWidgetItem(QString(contacts[i].name.c_str())));
+            this->setItem(i, 2, new QTableWidgetItem(QString(contacts[i].surname.c_str())));
+            this->setItem(i, 3, new QTableWidgetItem(QString(contacts[i].middle_name.c_str())));
+            this->setItem(i, 4, new QTableWidgetItem(QString(contacts[i].mail.c_str())));
+            this->setItem(i, 5, new QTableWidgetItem(QString(contacts[i].address.c_str())));
+            this->setItem(i, 6, new QTableWidgetItem(QString(contacts[i].date_of_birth.c_str())));
+            for (auto it = contacts[i].phone_numbers.begin(); it != contacts[i].phone_numbers.end(); it++) {
+                tmp += it->c_str();
+                tmp += " ";
+            }
+            this->setItem(i, 7, new QTableWidgetItem(tmp));
+            tmp = "";
+        }
+        this->setFixedHeight(400);
+        this->setMaximumWidth(1000);
+        this->setMinimumWidth(800);
+    }
+    void show_sorted(int column) {
+        qDebug() << column;
+        this->sortByColumn(column);
+    }
+    
+};
 
+class SearchBlock : public QWidget {
+    Q_OBJECT
+public:
+    QPushButton* search = new QPushButton(QString("search"), this);
+    QLineEdit* search_field = new QLineEdit(this);
+    QComboBox* field_option = new QComboBox(this);
+    SearchBlock(QWidget* parent) : QWidget(parent) {
+        field_option->addItem("id");
+        field_option->addItem("name");
+        field_option->addItem("surname");
+        field_option->addItem("middle_name");
+        field_option->addItem("email");
+        field_option->addItem("address");
+        field_option->addItem("date");
+        field_option->addItem("phone_numbers");
+        field_option->show();
+        search->show();
+        search_field->show();
+    }
+};
+
+class MainContactWindow : public QWidget {
+    Q_OBJECT
+public:
+    ContactList* contact_table;
+    ButtonBlock* buttons;
+    SearchBlock* search_buttons;
+    vector<Contact>* contacts;
+    vector<AddContactWindow>* add_windows;
+    vector<ChangeContactWindow>* chng_windows;
+    MainContactWindow(vector<Contact>& contacts) : QWidget() {
+        this->contacts = &contacts;
+        contact_table = new ContactList(this, contacts);
+        buttons = new ButtonBlock(this);
+        buttons->move(30, contact_table->height() + 30);
+        buttons->b_delete->move(30, 0);
+        buttons->b_add_contact->move(110, 0);
+        buttons->b_edit->move(190, 0);
+        
+        search_buttons = new SearchBlock(this);
+        search_buttons->move(300, contact_table->height() + 30);
+        search_buttons->field_option->move(110, 0);
+        search_buttons->search_field->move(230, 0);
+        search_buttons->search->move(470, 0);
+        contact_table->raise();
+
+        connect(buttons->b_delete, SIGNAL(clicked()), contact_table, SLOT(delete_row()));
+        connect(buttons->b_add_contact, SIGNAL(clicked()), contact_table, SLOT(create_contact()));
+        connect(buttons->b_edit, SIGNAL(clicked()), contact_table, SLOT(update_contact()));
+        connect(search_buttons->search, SIGNAL(clicked()), this, SLOT(search()));
+
+        this->setMinimumSize(1000, 500);
+    };
+public slots:
+    void search() {
+        qDebug() << search_buttons->field_option->currentIndex();
+        if (search_buttons->search_field->text().size() == 0)
+            this->contact_table->refresh_table();
+        else
+            contact_table->refresh_table_search(search_buttons->field_option->currentIndex(), search_buttons->search_field->text());
+    }
+};
+
+#include "main.moc"
 
 int main(int argc, char *argv[])
 {
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("KOI8-R"));
     setlocale(LC_ALL, "RU");
-    fstream contact_file("contacts.csv");
+    
     string contact_str;
     vector<Contact> contacts = {};
 
-    while (getline(contact_file, contact_str))
+    QFile qcontact_file("contacts.csv");
+    if (!qcontact_file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return 1;
+    while (!qcontact_file.atEnd())
     {
-        cout << contact_str << endl;
+        contact_str = qcontact_file.readLine().toStdString();
+        cout << contact_str;
+        if (*(contact_str.end() - 1) == '\n')
+            contact_str.erase(contact_str.end() - 1);
         if (contact_str.size() > 1)
             contacts.push_back(Contact(contact_str));
     }
-    contact_file.close();
 
-    string in;
-    cout << "Введите опцию:\n 1 - добавить контакт \n 2 - редактировать существующий контакт \n 3 - удалить существующий контакт \n q - выйти из программы" << endl;
-    cin >> in;
-    for (; ; cin >> in) {
-        if (in == "1")
-            add_contact(contacts);
-        else if (in == "2")
-            change_contact(contacts);
-        else if (in == "3")
-            delete_contact(contacts);
-        else if (in == "q")
-            break;
-        else
-            cout << "\nВведена неправильная опция, повторите снова \n";
-        cout << "Введите опцию:\n 1 - добавить контакт \n 2 - редактировать существующий контакт \n 3 - удалить существующий контакт \n q - выйти из программы" << endl;
-    }
-    return 0;
+    QApplication a(argc, argv);
+    MainContactWindow* mw = new MainContactWindow(contacts);
+    mw->show();
+    return a.exec();
 }
