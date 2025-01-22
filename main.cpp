@@ -104,16 +104,16 @@ public:
 
     void print_detailed() {
         cout << "id: " << this->u_id << endl;
-        cout << "1.Èìÿ: " << this->name << endl;
-        cout << "2.Ôàìèëèÿ: " << this->surname << endl;
-        cout << "3.Îò÷åñòâî: " << this->middle_name << endl;
+        cout << "1.ÃˆÃ¬Ã¿: " << this->name << endl;
+        cout << "2.Ã”Ã Ã¬Ã¨Ã«Ã¨Ã¿: " << this->surname << endl;
+        cout << "3.ÃŽÃ²Ã·Ã¥Ã±Ã²Ã¢Ã®: " << this->middle_name << endl;
         cout << "4.email: " << this->mail << endl;
         cout << "5.address: " << this->address << endl;
-        cout << "6.Òåëåôîííûå íîìåðà: ";
+        cout << "6.Ã’Ã¥Ã«Ã¥Ã´Ã®Ã­Ã­Ã»Ã¥ Ã­Ã®Ã¬Ã¥Ã°Ã : ";
         for (auto it = this->phone_numbers.begin(); it != this->phone_numbers.end(); it++)
             cout << *it << " | ";
         cout << endl;
-        cout << "7.Äàòà ðîæäåíèÿ: " << this->date_of_birth << endl;
+        cout << "7.Ã„Ã Ã²Ã  Ã°Ã®Ã¦Ã¤Ã¥Ã­Ã¨Ã¿: " << this->date_of_birth << endl;
     };
 };
 
@@ -140,7 +140,7 @@ bool check_date(QDate date) {
 bool check_name(QString name) {
     if (QRegularExpression("[A-Za-z]{1,}").match(name).hasMatch())
         return true;
-    if (QRegularExpression(QString::fromLocal8Bit("[À-ßà-ÿ]{1,}")).match(name).hasMatch())
+    if (QRegularExpression(QString::fromLocal8Bit("[Ã€-ÃŸÃ -Ã¿]{1,}")).match(name).hasMatch())
         return true;
     return false;
 }
@@ -193,7 +193,7 @@ void write_contacts(vector<Contact> &contacts) {
 void delete_contact(vector<Contact> &contacts) {
     int rm_id;
     show_contacts(contacts);
-    cout << "\nÂâåäèòå id êîíòàêòà, êîòîðûé âû õîòèòå óäàëèòü\n";
+    cout << "\nÃ‚Ã¢Ã¥Ã¤Ã¨Ã²Ã¥ id ÃªÃ®Ã­Ã²Ã ÃªÃ²Ã , ÃªÃ®Ã²Ã®Ã°Ã»Ã© Ã¢Ã» ÃµÃ®Ã²Ã¨Ã²Ã¥ Ã³Ã¤Ã Ã«Ã¨Ã²Ã¼\n";
     cin >> rm_id;
     for (auto it = contacts.begin(); it != contacts.end(); it++) {
         if (it->u_id == rm_id) {
@@ -203,10 +203,6 @@ void delete_contact(vector<Contact> &contacts) {
         }
     }
     
-}
-
-void show_sorted(vector<Contact> contacts, int field_option = 0) {
-
 }
 
 class ButtonBlock : public QWidget {
@@ -315,7 +311,7 @@ public slots:
         }
         else {
             QMessageBox* warn = new QMessageBox;
-            warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíî ââåäåí email, ïîâòîðèòå ââîä"));
+            warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã® Ã¢Ã¢Ã¥Ã¤Ã¥Ã­ email, Ã¯Ã®Ã¢Ã²Ã®Ã°Ã¨Ã²Ã¥ Ã¢Ã¢Ã®Ã¤"));
             warn->exec();
             return;
         }
@@ -330,7 +326,7 @@ public slots:
         }
         else {
             QMessageBox* warn = new QMessageBox;
-            warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíàÿ äàòà, ïîâòîðèòå ââîä"));
+            warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã Ã¿ Ã¤Ã Ã²Ã , Ã¯Ã®Ã¢Ã²Ã®Ã°Ã¨Ã²Ã¥ Ã¢Ã¢Ã®Ã¤"));
             warn->exec();
             return;
         }
@@ -341,7 +337,7 @@ public slots:
                 new_contact.phone_numbers.push_back(it->toStdString());
             else {
                 QMessageBox* warn = new QMessageBox;
-                warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíûé òåëåôîí"));
+                warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã»Ã© Ã²Ã¥Ã«Ã¥Ã´Ã®Ã­"));
                 warn->exec();
                 return;
             }
@@ -448,7 +444,7 @@ public slots:
         }
         else {
             QMessageBox* warn = new QMessageBox;
-            warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíî ââåäåí email, ïîâòîðèòå ââîä"));
+            warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã® Ã¢Ã¢Ã¥Ã¤Ã¥Ã­ email, Ã¯Ã®Ã¢Ã²Ã®Ã°Ã¨Ã²Ã¥ Ã¢Ã¢Ã®Ã¤"));
             warn->exec();
         }
 
@@ -462,7 +458,7 @@ public slots:
         }
         else {
             QMessageBox* warn = new QMessageBox;
-            warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíàÿ äàòà, ïîâòîðèòå ââîä"));
+            warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã Ã¿ Ã¤Ã Ã²Ã , Ã¯Ã®Ã¢Ã²Ã®Ã°Ã¨Ã²Ã¥ Ã¢Ã¢Ã®Ã¤"));
             warn->exec();
             return;
         }
@@ -474,7 +470,7 @@ public slots:
                 contact->phone_numbers.push_back(it->toStdString());
             else {
                 QMessageBox* warn = new QMessageBox;
-                warn->setText(QString::fromLocal8Bit("Íåïðàâèëüíûé òåëåôîí"));
+                warn->setText(QString::fromLocal8Bit("ÃÃ¥Ã¯Ã°Ã Ã¢Ã¨Ã«Ã¼Ã­Ã»Ã© Ã²Ã¥Ã«Ã¥Ã´Ã®Ã­"));
                 warn->exec();
                 return;
             }
