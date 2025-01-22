@@ -18,6 +18,7 @@
 #include <fstream>
 #include <qdebug.h>
 #include <algorithm>
+#include "sqlite3.h"
 
 
 using namespace std;
@@ -162,51 +163,86 @@ bool check_phone(string phone_number) {
     return false;
 }
 
-void write_contact_to_file(Contact& new_contact) {
-
-    QFile qcontact_file("contacts.csv");
-    if (qcontact_file.open(QIODevice::Text | QIODevice::ReadWrite | QIODevice::Append)) {
-        QTextStream out(&qcontact_file);
-        QTextCodec::setCodecForLocale(QTextCodec::codecForName("Windows-1251"));
-        out.setCodec(QTextCodec::codecForName("windows-1251"));
-        out << new_contact.u_id << '|' << QString::fromLocal8Bit(new_contact.name.c_str()) << '|' << QString::fromLocal8Bit(new_contact.surname.c_str()) << \
-            '|' << QString::fromLocal8Bit(new_contact.middle_name.c_str()) << '|' << new_contact.mail.c_str() << '|' <<\
-            QString::fromLocal8Bit(new_contact.address.c_str()) << '|' << QString::fromLocal8Bit(new_contact.date_of_birth.c_str()) << '|';
-        for (auto it = new_contact.phone_numbers.begin(); it != new_contact.phone_numbers.end(); it++) {
-            if (it == (new_contact.phone_numbers.end() - 1))
-                out << it->c_str() << '\n';
-            else
-                out << it->c_str() << '|';
-        }
+void delete_contact_db(vector<int> id_list) {
+    sqlite3* db;
+    char* err_msg = 0;
+    int rc = sqlite3_open("contacts.db", &db);
+    if (rc != SQLITE_OK)
+    {
+        sqlite3_close(db);
+        return;
     }
-}
-
-void write_contacts(vector<Contact> &contacts) {
-    QFile qcontact_file("contacts.csv");
-    qcontact_file.open(QIODevice::Text | QIODevice::ReadWrite | QIODevice::Truncate);
-    qcontact_file.close();
-    for (auto it = contacts.begin(); it != contacts.end(); it++) {
-        write_contact_to_file(*it);
-    }
-}
-
-void delete_contact(vector<Contact> &contacts) {
-    int rm_id;
-    show_contacts(contacts);
-    cout << "\nВведите id контакта, который вы хотите удалить\n";
-    cin >> rm_id;
-    for (auto it = contacts.begin(); it != contacts.end(); it++) {
-        if (it->u_id == rm_id) {
-            contacts.erase(it);
-            write_contacts(contacts);
+    string sql = "";
+    for (auto it = id_list.begin(); it != id_list.end(); it++) {
+        sql = "DELETE FROM people WHERE id =  " + to_string(*it);
+        rc = sqlite3_exec(db, sql.c_str(), 0, 0, &err_msg);
+        if (rc != SQLITE_OK)
+        {
+            printf("SQL error: %s\n", err_msg);
+            sqlite3_free(err_msg);      // очищаем ресурсы
+            sqlite3_close(db);
             return;
         }
     }
-    
+    sqlite3_close(db);
 }
 
-void show_sorted(vector<Contact> contacts, int field_option = 0) {
+void change_contact_db(Contact& chng_contact) {
+    sqlite3* db;
+    char* err_msg = 0;
+    int rc = sqlite3_open("contacts.db", &db);
+    if (rc != SQLITE_OK)
+    {
+        sqlite3_close(db);
+        return;
+    }
+    string sql = "UPDATE people SET name = '" + chng_contact.name + "', surname =  '" + chng_contact.surname + "', middle_name = '" + chng_contact.middle_name + \
+        "', email = '" + chng_contact.mail + "', address = '" + chng_contact.address + "', date_of_birth = '" + chng_contact.date_of_birth + "', phone_numbers = '";
+    for (auto it = chng_contact.phone_numbers.begin(); it != chng_contact.phone_numbers.end(); it++) {
+        sql += *it;
+        if (it != chng_contact.phone_numbers.end() - 1)
+            sql += '|';
+    }
+    sql += "' WHERE id = ";
+    sql += to_string(chng_contact.u_id);
+    rc = sqlite3_exec(db, sql.c_str(), 0, 0, &err_msg);
+    if (rc != SQLITE_OK)
+    {
+        printf("SQL error: %s\n", err_msg);
+        sqlite3_free(err_msg);      // очищаем ресурсы
+        sqlite3_close(db);
+        return;
+    }
+    sqlite3_close(db);
+}
 
+void add_contact_db(Contact& chng_contact) {
+    sqlite3* db;
+    char* err_msg = 0;
+    int rc = sqlite3_open("contacts.db", &db);
+    if (rc != SQLITE_OK)
+    {
+        sqlite3_close(db);
+        return;
+    }
+    string sql = "INSERT INTO people(name, surname, middle_name, email, address, date_of_birth, phone_numbers) "
+        "VALUES ('" + chng_contact.name + "', '" + chng_contact.surname + "', '" + chng_contact.middle_name + "', '" + chng_contact.mail + "', '" + chng_contact.address + "', '" + chng_contact.date_of_birth + "', '";
+    for (auto it = chng_contact.phone_numbers.begin(); it != chng_contact.phone_numbers.end(); it++) {
+        sql += *it;
+        if (it != chng_contact.phone_numbers.end() - 1)
+            sql += '|';
+    }
+    sql += "');";
+    rc = sqlite3_exec(db, sql.c_str(), 0, 0, &err_msg);
+    if (rc != SQLITE_OK)
+    {
+        printf("SQL error: %s\n", err_msg);
+        sqlite3_free(err_msg);      // очищаем ресурсы
+        sqlite3_close(db);
+        return;
+    }
+    sql.clear();
+    sqlite3_close(db);
 }
 
 class ButtonBlock : public QWidget {
@@ -348,7 +384,7 @@ public slots:
         }
         new_contact.print_detailed();
         contacts_window->push_back(new_contact);
-        write_contact_to_file(new_contact);
+        add_contact_db(new_contact);
     };
 };
 
@@ -480,6 +516,7 @@ public slots:
             }
         }
         contact->print_detailed();
+        change_contact_db(*contact);
     };
     void delete_w() {
         delete this;
@@ -571,6 +608,7 @@ public:
     }
 public slots:
     void delete_row() {
+        vector<int> ids_to_delete = {};
         int rows_to_delete = 0;
         int row_id = 0;
         if (this->selectedRanges().size() > 0) {
@@ -581,14 +619,13 @@ public slots:
         for (int i = 0; i < rows_to_delete; i++) {
             for (auto it = contacts_list->begin(); it != contacts_list->end(); it++)
                 if (it->u_id == this->item(row_id, 0)->text().toInt()) {
+                    ids_to_delete.push_back(it->u_id);
                     contacts_list->erase(it);
-                    write_contacts(*contacts_list);
                     break;
                 }
             removeRow(row_id);
         }
-
-        
+        delete_contact_db(ids_to_delete);    
     }
     void create_contact() {
         
@@ -618,7 +655,6 @@ public slots:
 
     void refresh_table() {
         vector<Contact>& contacts = *contacts_list;
-        write_contacts(contacts);
         QString tmp = "";
         this->setRowCount(contacts.size());
         this->setColumnCount(8);
@@ -712,6 +748,24 @@ public slots:
     }
 };
 
+int callback(void* contacts, int colCount, char** columns, char** colNames) {
+    vector<Contact>* tmp_contacts = (vector<Contact>*)contacts;
+    Contact new_contact;
+    new_contact.u_id = stoi(string(columns[0]));
+    new_contact.name = columns[1];
+    new_contact.surname = columns[2];
+    new_contact.middle_name = columns[3];
+    new_contact.mail = columns[4];
+    new_contact.address = columns[5];
+    new_contact.date_of_birth = columns[6];
+    QStringList tmp = QString(columns[7]).split('|');
+    for (int i = 0; i < tmp.size(); i++) {
+        new_contact.phone_numbers.push_back(tmp[i].toStdString());
+    }
+    tmp_contacts->push_back(new_contact);
+    return 0;
+}
+
 #include "main.moc"
 
 int main(int argc, char *argv[])
@@ -722,19 +776,28 @@ int main(int argc, char *argv[])
     string contact_str;
     vector<Contact> contacts = {};
 
-    QFile qcontact_file("contacts.csv");
-    if (!qcontact_file.open(QIODevice::ReadOnly | QIODevice::Text))
-        return 1;
-    while (!qcontact_file.atEnd())
+    sqlite3* db;
+    char* err_msg = 0;
+    int rc = sqlite3_open("contacts.db", &db);
+    if (rc != SQLITE_OK)
     {
-        contact_str = qcontact_file.readLine().toStdString();
-        cout << contact_str;
-        if (*(contact_str.end() - 1) == '\n')
-            contact_str.erase(contact_str.end() - 1);
-        if (contact_str.size() > 1)
-            contacts.push_back(Contact(contact_str));
+        sqlite3_close(db);
+        return 1;
+    }
+    const char* sql = "CREATE TABLE IF NOT EXISTS people(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, surname TEXT, middle_name TEXT, email TEXT, address TEXT, date_of_birth TEXT, phone_numbers TEXT);";
+    rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+    if (rc != SQLITE_OK)
+    {
+        printf("SQL error: %s\n", err_msg);
+        sqlite3_free(err_msg);      // очищаем ресурсы
+        sqlite3_close(db);
+        return 1;
     }
 
+    sql = "SELECT * FROM people";
+    rc = sqlite3_exec(db, sql, callback, &contacts, &err_msg);
+     
+    sqlite3_close(db);
     QApplication a(argc, argv);
     MainContactWindow* mw = new MainContactWindow(contacts);
     mw->show();
